@@ -685,6 +685,8 @@ body {
 .stat-card--default::before { background: var(--gradient-purple); }
 .stat-card--withdrawal::before { background: linear-gradient(135deg, #f59e0b, #d97706); }
 .stat-card--withdrawal:hover { box-shadow: 0 0 20px rgba(245, 158, 11, 0.2); }
+.stat-card--deposit::before { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+.stat-card--deposit:hover { box-shadow: 0 0 20px rgba(6, 182, 212, 0.2); }
 
 .stat-card__header {
   display: flex;
@@ -1699,6 +1701,81 @@ body {
 }
 
 .btn-withdrawal:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   BANK DEPOSIT STYLES
+   ============================================ */
+.deposit-amount {
+  color: #06b6d4;
+}
+
+.summary-card--deposit::before {
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+}
+
+.summary-card--deposit .summary-value {
+  color: #06b6d4;
+}
+
+.deposit-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: rgba(6, 182, 212, 0.06);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  animation: slideUp 0.4s ease;
+}
+
+.deposit-info-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.deposit-info-banner strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #06b6d4;
+  margin-bottom: 4px;
+}
+
+.deposit-info-banner p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.btn-deposit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  color: white;
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.3);
+  transition: all var(--transition-normal);
+}
+
+.btn-deposit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.4);
+}
+
+.btn-deposit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

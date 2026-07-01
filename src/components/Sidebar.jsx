@@ -10,6 +10,8 @@ export default function Sidebar({ isOpen, onToggle }) {
     { path: '/expenses', label: 'Expenses', icon: '💸' },
     { path: '/income', label: 'Income', icon: '💰' },
     { path: '/withdrawals', label: 'Cash Withdrawal', icon: '🏧' },
+    { path: '/bank-deposit', label: 'Bank Deposit', icon: '🏦' },
+    { path: '/cash-deposit', label: 'Cash Deposit', icon: '💵' },
     { path: '/monthly', label: 'Monthly Summary', icon: '📅' },
   ];
 

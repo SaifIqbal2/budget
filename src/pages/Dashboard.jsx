@@ -11,6 +11,8 @@ export default function Dashboard({ onMenuToggle }) {
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [deposits, setDeposits] = useState([]);
+  const [cashDeposits, setCashDeposits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -25,7 +27,7 @@ export default function Dashboard({ onMenuToggle }) {
     const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
     const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    const [expRes, incRes, wdRes] = await Promise.all([
+    const [expRes, incRes, wdRes, depRes, cashDepRes] = await Promise.all([
       supabase
         .from('expenses')
         .select('*, categories!category_id(name, icon, color)')
@@ -40,6 +42,18 @@ export default function Dashboard({ onMenuToggle }) {
         .order('date', { ascending: false }),
       supabase
         .from('cash_withdrawals')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false }),
+      supabase
+        .from('bank_deposits')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false }),
+      supabase
+        .from('cash_deposits')
         .select('*')
         .gte('date', startDate)
         .lte('date', endDate)
@@ -64,6 +78,10 @@ export default function Dashboard({ onMenuToggle }) {
     setIncomes(incRes.data || []);
     if (wdRes.error) console.error('Withdrawals error:', wdRes.error);
     setWithdrawals(wdRes.data || []);
+    if (depRes.error) console.error('Bank deposits error:', depRes.error);
+    setDeposits(depRes.data || []);
+    if (cashDepRes.error) console.error('Cash deposits error:', cashDepRes.error);
+    setCashDeposits(cashDepRes.data || []);
     setLoading(false);
   };
 
@@ -71,6 +89,10 @@ export default function Dashboard({ onMenuToggle }) {
     const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
     const totalIncome = incomes.reduce((sum, i) => sum + Number(i.amount), 0);
     const totalWithdrawn = withdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
+    const totalDeposited = deposits.reduce((sum, d) => sum + Number(d.amount), 0);
+    const totalCashDeposited = cashDeposits.reduce((sum, d) => sum + Number(d.amount), 0);
+
+    // Month Balance = sirf Earnings - Expenses hoga
     const balance = totalIncome - totalExpenses;
 
     const cashExpenses = expenses
@@ -79,8 +101,8 @@ export default function Dashboard({ onMenuToggle }) {
     const cashIncome = incomes
       .filter((i) => i.payment_method === 'cash')
       .reduce((sum, i) => sum + Number(i.amount), 0);
-    // Withdrawals add to cash, reduce from bank
-    const cashBalance = cashIncome - cashExpenses + totalWithdrawn;
+    // Withdrawals add to cash balance, Cash deposits add to cash balance
+    const cashBalance = cashIncome - cashExpenses + totalWithdrawn + totalCashDeposited;
 
     const bankExpenses = expenses
       .filter((e) => e.payment_method === 'bank')
@@ -88,12 +110,12 @@ export default function Dashboard({ onMenuToggle }) {
     const bankIncome = incomes
       .filter((i) => i.payment_method === 'bank')
       .reduce((sum, i) => sum + Number(i.amount), 0);
-    // Withdrawals reduce bank balance
-    const bankBalance = bankIncome - bankExpenses - totalWithdrawn;
+    // Bank deposits ADD to bank balance, withdrawals REDUCE bank balance
+    const bankBalance = bankIncome - bankExpenses - totalWithdrawn + totalDeposited;
     const totalWithdrawals = totalWithdrawn;
 
-    return { totalExpenses, totalIncome, balance, cashBalance, bankBalance, totalWithdrawals };
-  }, [expenses, incomes, withdrawals]);
+    return { totalExpenses, totalIncome, balance, cashBalance, bankBalance, totalWithdrawals, totalDeposited, totalCashDeposited };
+  }, [expenses, incomes, withdrawals, deposits, cashDeposits]);
 
   const recentTransactions = useMemo(() => {
     const all = [
@@ -184,6 +206,18 @@ export default function Dashboard({ onMenuToggle }) {
               value={stats.totalWithdrawals}
               icon="🏧"
               type="withdrawal"
+            />
+            <StatCard
+              title="Bank Deposited"
+              value={stats.totalDeposited}
+              icon="🏦"
+              type="deposit"
+            />
+            <StatCard
+              title="Cash Deposited"
+              value={stats.totalCashDeposited}
+              icon="💵"
+              type="deposit"
             />
           </div>
 

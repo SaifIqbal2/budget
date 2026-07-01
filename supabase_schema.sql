@@ -64,6 +64,30 @@ CREATE TABLE IF NOT EXISTS cash_withdrawals (
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
+-- 6. BANK DEPOSITS TABLE
+-- Manually bank mein paisa add karna (income se alag)
+-- Sirf bank balance aur total balance mein add hoga
+CREATE TABLE IF NOT EXISTS bank_deposits (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
+    description TEXT,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- 7. CASH DEPOSITS TABLE
+-- Manually cash add karna (income se alag)
+-- Sirf cash balance aur total balance mein add hoga
+CREATE TABLE IF NOT EXISTS cash_deposits (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
+    description TEXT,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
 -- Only authenticated admin can access data
@@ -75,6 +99,8 @@ ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE incomes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bank_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cash_withdrawals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bank_deposits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cash_deposits ENABLE ROW LEVEL SECURITY;
 
 -- Categories: Any authenticated user can read, only authenticated can insert/update/delete
 CREATE POLICY "Authenticated users can read categories"
@@ -186,6 +212,50 @@ CREATE POLICY "Users can delete own cash_withdrawals"
     TO authenticated
     USING (auth.uid() = user_id);
 
+-- Bank Deposits: Users can only access their own data
+CREATE POLICY "Users can read own bank_deposits"
+    ON bank_deposits FOR SELECT
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own bank_deposits"
+    ON bank_deposits FOR INSERT
+    TO authenticated
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own bank_deposits"
+    ON bank_deposits FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own bank_deposits"
+    ON bank_deposits FOR DELETE
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+-- Cash Deposits: Users can only access their own data
+CREATE POLICY "Users can read own cash_deposits"
+    ON cash_deposits FOR SELECT
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own cash_deposits"
+    ON cash_deposits FOR INSERT
+    TO authenticated
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own cash_deposits"
+    ON cash_deposits FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own cash_deposits"
+    ON cash_deposits FOR DELETE
+    TO authenticated
+    USING (auth.uid() = user_id);
+
 -- ============================================
 -- DEFAULT CATEGORIES (INSERT AFTER RUNNING ABOVE)
 -- ============================================
@@ -215,6 +285,10 @@ CREATE INDEX IF NOT EXISTS idx_incomes_user_id ON incomes(user_id);
 CREATE INDEX IF NOT EXISTS idx_bank_balance_month_year ON bank_balance(month, year);
 CREATE INDEX IF NOT EXISTS idx_cash_withdrawals_date ON cash_withdrawals(date);
 CREATE INDEX IF NOT EXISTS idx_cash_withdrawals_user_id ON cash_withdrawals(user_id);
+CREATE INDEX IF NOT EXISTS idx_bank_deposits_date ON bank_deposits(date);
+CREATE INDEX IF NOT EXISTS idx_bank_deposits_user_id ON bank_deposits(user_id);
+CREATE INDEX IF NOT EXISTS idx_cash_deposits_date ON cash_deposits(date);
+CREATE INDEX IF NOT EXISTS idx_cash_deposits_user_id ON cash_deposits(user_id);
 
 -- ============================================
 -- DONE! 
