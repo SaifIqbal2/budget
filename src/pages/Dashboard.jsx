@@ -166,10 +166,10 @@ export default function Dashboard({ onMenuToggle }) {
         <>
           <div className="stats-grid">
             <StatCard
-              title="Balance"
-              value={stats.balance}
+              title="Total Balance"
+              value={stats.cashBalance + stats.bankBalance}
               icon="⚖️"
-              type={stats.balance >= 0 ? 'success' : 'danger'}
+              type={(stats.cashBalance + stats.bankBalance) >= 0 ? 'success' : 'danger'}
             />
             <StatCard
               title="Earnings"
