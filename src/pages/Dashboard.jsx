@@ -13,6 +13,7 @@ export default function Dashboard({ onMenuToggle }) {
   const [withdrawals, setWithdrawals] = useState([]);
   const [deposits, setDeposits] = useState([]);
   const [cashDeposits, setCashDeposits] = useState([]);
+  const [cashToBank, setCashToBank] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -27,7 +28,7 @@ export default function Dashboard({ onMenuToggle }) {
     const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
     const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    const [expRes, incRes, wdRes, depRes, cashDepRes] = await Promise.all([
+    const [expRes, incRes, wdRes, depRes, cashDepRes, ctbRes] = await Promise.all([
       supabase
         .from('expenses')
         .select('*, categories!category_id(name, icon, color)')
@@ -58,6 +59,12 @@ export default function Dashboard({ onMenuToggle }) {
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false }),
+      supabase
+        .from('cash_to_bank')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false }),
     ]);
 
     if (expRes.error) console.error('Dashboard expenses error:', expRes.error);
@@ -82,6 +89,8 @@ export default function Dashboard({ onMenuToggle }) {
     setDeposits(depRes.data || []);
     if (cashDepRes.error) console.error('Cash deposits error:', cashDepRes.error);
     setCashDeposits(cashDepRes.data || []);
+    if (ctbRes.error) console.error('Cash to Bank error:', ctbRes.error);
+    setCashToBank(ctbRes.data || []);
     setLoading(false);
   };
 
@@ -91,6 +100,7 @@ export default function Dashboard({ onMenuToggle }) {
     const totalWithdrawn = withdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
     const totalDeposited = deposits.reduce((sum, d) => sum + Number(d.amount), 0);
     const totalCashDeposited = cashDeposits.reduce((sum, d) => sum + Number(d.amount), 0);
+    const totalCashToBank = cashToBank.reduce((sum, d) => sum + Number(d.amount), 0);
 
     // Month Balance = sirf Earnings - Expenses hoga
     const balance = totalIncome - totalExpenses;
@@ -101,8 +111,8 @@ export default function Dashboard({ onMenuToggle }) {
     const cashIncome = incomes
       .filter((i) => i.payment_method === 'cash')
       .reduce((sum, i) => sum + Number(i.amount), 0);
-    // Withdrawals add to cash balance, Cash deposits add to cash balance
-    const cashBalance = cashIncome - cashExpenses + totalWithdrawn + totalCashDeposited;
+    // Withdrawals add to cash balance, Cash deposits add to cash balance, Cash to bank subtracts from cash
+    const cashBalance = cashIncome - cashExpenses + totalWithdrawn + totalCashDeposited - totalCashToBank;
 
     const bankExpenses = expenses
       .filter((e) => e.payment_method === 'bank')
@@ -110,12 +120,12 @@ export default function Dashboard({ onMenuToggle }) {
     const bankIncome = incomes
       .filter((i) => i.payment_method === 'bank')
       .reduce((sum, i) => sum + Number(i.amount), 0);
-    // Bank deposits ADD to bank balance, withdrawals REDUCE bank balance
-    const bankBalance = bankIncome - bankExpenses - totalWithdrawn + totalDeposited;
+    // Bank deposits ADD to bank balance, withdrawals REDUCE bank balance, Cash to bank ADDs to bank balance
+    const bankBalance = bankIncome - bankExpenses - totalWithdrawn + totalDeposited + totalCashToBank;
     const totalWithdrawals = totalWithdrawn;
 
-    return { totalExpenses, totalIncome, balance, cashBalance, bankBalance, totalWithdrawals, totalDeposited, totalCashDeposited };
-  }, [expenses, incomes, withdrawals, deposits, cashDeposits]);
+    return { totalExpenses, totalIncome, balance, cashBalance, bankBalance, totalWithdrawals, totalDeposited, totalCashDeposited, totalCashToBank };
+  }, [expenses, incomes, withdrawals, deposits, cashDeposits, cashToBank]);
 
   const recentTransactions = useMemo(() => {
     const all = [

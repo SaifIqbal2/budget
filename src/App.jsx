@@ -9,8 +9,7 @@ import Expenses from './pages/Expenses';
 import Income from './pages/Income';
 import MonthlySummary from './pages/MonthlySummary';
 import Withdrawals from './pages/Withdrawals';
-import BankDeposit from './pages/BankDeposit';
-import CashDeposit from './pages/CashDeposit';
+import Deposits from './pages/Deposits';
 
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,8 +25,7 @@ function AppLayout() {
           <Route path="/income" element={<Income onMenuToggle={toggleSidebar} />} />
           <Route path="/monthly" element={<MonthlySummary onMenuToggle={toggleSidebar} />} />
           <Route path="/withdrawals" element={<Withdrawals onMenuToggle={toggleSidebar} />} />
-          <Route path="/bank-deposit" element={<BankDeposit onMenuToggle={toggleSidebar} />} />
-          <Route path="/cash-deposit" element={<CashDeposit onMenuToggle={toggleSidebar} />} />
+          <Route path="/deposits" element={<Deposits onMenuToggle={toggleSidebar} />} />
         </Routes>
       </main>
     </div>

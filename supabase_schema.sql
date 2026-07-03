@@ -88,6 +88,17 @@ CREATE TABLE IF NOT EXISTS cash_deposits (
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
+-- 8. CASH TO BANK TRANSFERS
+-- Cash se bank mein transfer karna (Cash balance kam hoga, Bank balance zyada hoga)
+CREATE TABLE IF NOT EXISTS cash_to_bank (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
+    description TEXT,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
 -- Only authenticated admin can access data
@@ -101,6 +112,7 @@ ALTER TABLE bank_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cash_withdrawals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bank_deposits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cash_deposits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cash_to_bank ENABLE ROW LEVEL SECURITY;
 
 -- Categories: Any authenticated user can read, only authenticated can insert/update/delete
 CREATE POLICY "Authenticated users can read categories"
@@ -256,6 +268,28 @@ CREATE POLICY "Users can delete own cash_deposits"
     TO authenticated
     USING (auth.uid() = user_id);
 
+-- Cash To Bank Transfers: Users can only access their own data
+CREATE POLICY "Users can read own cash_to_bank"
+    ON cash_to_bank FOR SELECT
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own cash_to_bank"
+    ON cash_to_bank FOR INSERT
+    TO authenticated
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own cash_to_bank"
+    ON cash_to_bank FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own cash_to_bank"
+    ON cash_to_bank FOR DELETE
+    TO authenticated
+    USING (auth.uid() = user_id);
+
 -- ============================================
 -- DEFAULT CATEGORIES (INSERT AFTER RUNNING ABOVE)
 -- ============================================
@@ -289,6 +323,8 @@ CREATE INDEX IF NOT EXISTS idx_bank_deposits_date ON bank_deposits(date);
 CREATE INDEX IF NOT EXISTS idx_bank_deposits_user_id ON bank_deposits(user_id);
 CREATE INDEX IF NOT EXISTS idx_cash_deposits_date ON cash_deposits(date);
 CREATE INDEX IF NOT EXISTS idx_cash_deposits_user_id ON cash_deposits(user_id);
+CREATE INDEX IF NOT EXISTS idx_cash_to_bank_date ON cash_to_bank(date);
+CREATE INDEX IF NOT EXISTS idx_cash_to_bank_user_id ON cash_to_bank(user_id);
 
 -- ============================================
 -- DONE! 
