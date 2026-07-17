@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function TransactionTable({ data, type, categories, onDelete, loading }) {
+export default function TransactionTable({ data, type, categories, onDelete, loading, showEmployeeColumn = false }) {
   const [sortField, setSortField] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
   const [deleteId, setDeleteId] = useState(null);
@@ -84,7 +84,7 @@ export default function TransactionTable({ data, type, categories, onDelete, loa
             {type === 'expense' ? (
               <>
                 <th>Category</th>
-                <th>Employee</th>
+                {showEmployeeColumn && <th>Employee</th>}
               </>
             ) : (
               <th onClick={() => handleSort('source')} className="sortable">
@@ -115,7 +115,7 @@ export default function TransactionTable({ data, type, categories, onDelete, loa
                         {cat.icon} {cat.name}
                       </span>
                     </td>
-                    <td>{item.employee_name || '—'}</td>
+                    {showEmployeeColumn && <td>{item.employee_name || '—'}</td>}
                   </>
                 ) : (
                   <td className="td-source">{item.source}</td>

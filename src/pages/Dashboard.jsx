@@ -123,8 +123,11 @@ export default function Dashboard({ onMenuToggle }) {
     // Bank deposits ADD to bank balance, withdrawals REDUCE bank balance, Cash to bank ADDs to bank balance
     const bankBalance = bankIncome - bankExpenses - totalWithdrawn + totalDeposited + totalCashToBank;
     const totalWithdrawals = totalWithdrawn;
+    const totalEmployeePayments = expenses
+      .filter((e) => e.categories?.name === 'Employee Payment')
+      .reduce((sum, e) => sum + Number(e.amount), 0);
 
-    return { totalExpenses, totalIncome, balance, cashBalance, bankBalance, totalWithdrawals, totalDeposited, totalCashDeposited, totalCashToBank };
+    return { totalExpenses, totalIncome, balance, cashBalance, bankBalance, totalWithdrawals, totalDeposited, totalCashDeposited, totalCashToBank, totalEmployeePayments };
   }, [expenses, incomes, withdrawals, deposits, cashDeposits, cashToBank]);
 
   const recentTransactions = useMemo(() => {
@@ -228,6 +231,12 @@ export default function Dashboard({ onMenuToggle }) {
               value={stats.totalCashDeposited}
               icon="💵"
               type="deposit"
+            />
+            <StatCard
+              title="Employee Payments"
+              value={stats.totalEmployeePayments}
+              icon="👷"
+              type="expense"
             />
           </div>
 

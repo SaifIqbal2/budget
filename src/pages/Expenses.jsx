@@ -53,30 +53,46 @@ export default function Expenses({ onMenuToggle }) {
 
     if (error) console.error('Categories error:', error);
     setCategories(categoriesList);
+    return categoriesList;
   };
 
   const fetchExpenses = async () => {
     setLoading(true);
+    const categoriesList = categories.length ? categories : await fetchCategories();
+    const employeeCategoryId = categoriesList.find((cat) => cat.name === 'Employee Payment')?.id;
+
     const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
     const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
     const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('expenses')
       .select('*, categories!category_id(name, icon, color)')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: false });
 
+    if (employeeCategoryId) {
+      query = query.not('category_id', 'eq', employeeCategoryId);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
       console.error('Expenses error:', error);
       // Fallback: try without join
-      const { data: fallbackData, error: fallbackError } = await supabase
+      let fallbackQuery = supabase
         .from('expenses')
         .select('*')
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false });
+
+      if (employeeCategoryId) {
+        fallbackQuery = fallbackQuery.not('category_id', 'eq', employeeCategoryId);
+      }
+
+      const { data: fallbackData, error: fallbackError } = await fallbackQuery;
       if (fallbackError) console.error('Expenses fallback error:', fallbackError);
       setExpenses(fallbackData || []);
     } else {

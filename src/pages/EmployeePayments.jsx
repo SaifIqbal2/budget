@@ -176,6 +176,7 @@ export default function EmployeePayments({ onMenuToggle }) {
           data={payments}
           type="expense"
           categories={categories}
+          showEmployeeColumn={true}
           onDelete={handleDeletePayment}
         />
       )}
