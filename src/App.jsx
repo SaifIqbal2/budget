@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Expenses from './pages/Expenses';
+import EmployeePayments from './pages/EmployeePayments';
 import Income from './pages/Income';
 import MonthlySummary from './pages/MonthlySummary';
 import Withdrawals from './pages/Withdrawals';
@@ -22,6 +23,7 @@ function AppLayout() {
         <Routes>
           <Route path="/" element={<Dashboard onMenuToggle={toggleSidebar} />} />
           <Route path="/expenses" element={<Expenses onMenuToggle={toggleSidebar} />} />
+          <Route path="/employee-payments" element={<EmployeePayments onMenuToggle={toggleSidebar} />} />
           <Route path="/income" element={<Income onMenuToggle={toggleSidebar} />} />
           <Route path="/monthly" element={<MonthlySummary onMenuToggle={toggleSidebar} />} />
           <Route path="/withdrawals" element={<Withdrawals onMenuToggle={toggleSidebar} />} />

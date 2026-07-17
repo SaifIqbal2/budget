@@ -1,9 +1,10 @@
 import { useState } from 'react';
 
-export default function TransactionForm({ type, categories, onSubmit, loading }) {
+export default function TransactionForm({ type, categories, onSubmit, loading, showEmployeeName = false }) {
   const [formData, setFormData] = useState({
     amount: '',
     description: '',
+    employee_name: '',
     date: new Date().toISOString().split('T')[0],
     category_id: '',
     source: '',
@@ -21,6 +22,7 @@ export default function TransactionForm({ type, categories, onSubmit, loading })
     setFormData({
       amount: '',
       description: '',
+      employee_name: '',
       date: new Date().toISOString().split('T')[0],
       category_id: '',
       source: '',
@@ -78,6 +80,20 @@ export default function TransactionForm({ type, categories, onSubmit, loading })
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {type === 'expense' && showEmployeeName && (
+          <div className="form-group">
+            <label htmlFor="employee_name">Employee / Vendor</label>
+            <input
+              type="text"
+              id="employee_name"
+              name="employee_name"
+              value={formData.employee_name}
+              onChange={handleChange}
+              placeholder="e.g., Ali, vendor name"
+            />
           </div>
         )}
 

@@ -6,22 +6,15 @@ import TransactionForm from '../components/TransactionForm';
 import TransactionTable from '../components/TransactionTable';
 import MonthSelector from '../components/MonthSelector';
 
-export default function Expenses({ onMenuToggle }) {
+export default function EmployeePayments({ onMenuToggle }) {
   const { user } = useAuth();
-  const [expenses, setExpenses] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
-    fetchExpenses();
-  }, [selectedMonth, selectedYear]);
+  const employeeCategoryName = 'Employee Payment';
 
   const fetchCategories = async () => {
     const { data, error } = await supabase
@@ -31,11 +24,12 @@ export default function Expenses({ onMenuToggle }) {
 
     let categoriesList = data || [];
 
-    if (!categoriesList.some((cat) => cat.name === 'Employee Payment')) {
+    if (!categoriesList.some((cat) => cat.name === employeeCategoryName)) {
       const { error: upsertError } = await supabase.from('categories').upsert(
-        [{ name: 'Employee Payment', icon: '👷', color: '#f97316' }],
+        [{ name: employeeCategoryName, icon: '👷', color: '#f97316' }],
         { onConflict: 'name' }
       );
+
       if (upsertError) {
         console.error('Employee Payment category error:', upsertError);
       } else {
@@ -53,44 +47,57 @@ export default function Expenses({ onMenuToggle }) {
 
     if (error) console.error('Categories error:', error);
     setCategories(categoriesList);
+    return categoriesList;
   };
 
-  const fetchExpenses = async () => {
+  const fetchPayments = async () => {
     setLoading(true);
+    const categoriesList = await fetchCategories();
+    const employeeCategory = categoriesList.find((cat) => cat.name === employeeCategoryName);
+
     const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
     const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
     const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('expenses')
       .select('*, categories!category_id(name, icon, color)')
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: false });
 
-    if (error) {
-      console.error('Expenses error:', error);
-      // Fallback: try without join
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('expenses')
-        .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: false });
-      if (fallbackError) console.error('Expenses fallback error:', fallbackError);
-      setExpenses(fallbackData || []);
+    if (employeeCategory) {
+      query = query.eq('category_id', employeeCategory.id);
     } else {
-      setExpenses(data || []);
+      query = query.eq('category_id', null);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Employee Payments error:', error);
+      setPayments([]);
+    } else {
+      setPayments(data || []);
     }
     setLoading(false);
   };
 
-  const handleAddExpense = async (formData) => {
+  useEffect(() => {
+    fetchPayments();
+  }, [selectedMonth, selectedYear]);
+
+  const handleAddPayment = async (formData) => {
     setSubmitting(true);
     try {
+      const employeeCategory = categories.find((cat) => cat.name === employeeCategoryName);
+      if (!employeeCategory) {
+        throw new Error('Employee Payment category not found');
+      }
+
       const { error } = await supabase.from('expenses').insert({
         amount: Number(formData.amount),
-        category_id: formData.category_id || null,
+        category_id: employeeCategory.id,
         description: formData.description,
         employee_name: formData.employee_name || null,
         date: formData.date,
@@ -99,25 +106,25 @@ export default function Expenses({ onMenuToggle }) {
       });
 
       if (error) throw error;
-      await fetchExpenses();
+      await fetchPayments();
     } catch (err) {
-      alert('Error adding expense: ' + err.message);
+      alert('Error adding employee payment: ' + err.message);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteExpense = async (id) => {
+  const handleDeletePayment = async (id) => {
     try {
       const { error } = await supabase.from('expenses').delete().eq('id', id);
       if (error) throw error;
-      setExpenses(expenses.filter((e) => e.id !== id));
+      setPayments(payments.filter((p) => p.id !== id));
     } catch (err) {
-      alert('Error deleting expense: ' + err.message);
+      alert('Error deleting payment: ' + err.message);
     }
   };
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-PK', {
       style: 'currency',
@@ -133,8 +140,8 @@ export default function Expenses({ onMenuToggle }) {
   return (
     <div className="page">
       <Header
-        title="Expenses"
-        subtitle={`Track your spending for ${MONTHS[selectedMonth]} ${selectedYear}`}
+        title="Employee Payments"
+        subtitle={`Track employee/vendor payments for ${MONTHS[selectedMonth]} ${selectedYear}`}
         onMenuToggle={onMenuToggle}
       />
 
@@ -146,16 +153,17 @@ export default function Expenses({ onMenuToggle }) {
 
       <div className="page-summary">
         <div className="summary-card summary-card--expense">
-          <span className="summary-label">Total Expenses</span>
-          <span className="summary-value">{formatCurrency(totalExpenses)}</span>
-          <span className="summary-count">{expenses.length} transactions</span>
+          <span className="summary-label">Total Payments</span>
+          <span className="summary-value">{formatCurrency(totalPayments)}</span>
+          <span className="summary-count">{payments.length} transactions</span>
         </div>
       </div>
 
       <TransactionForm
         type="expense"
-        categories={categories.filter((cat) => cat.name !== 'Employee Payment')}
-        onSubmit={handleAddExpense}
+        categories={categories.filter((cat) => cat.name === employeeCategoryName)}
+        showEmployeeName={true}
+        onSubmit={handleAddPayment}
         loading={submitting}
       />
 
@@ -165,10 +173,10 @@ export default function Expenses({ onMenuToggle }) {
         </div>
       ) : (
         <TransactionTable
-          data={expenses}
+          data={payments}
           type="expense"
           categories={categories}
-          onDelete={handleDeleteExpense}
+          onDelete={handleDeletePayment}
         />
       )}
     </div>

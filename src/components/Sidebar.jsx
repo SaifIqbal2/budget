@@ -8,6 +8,7 @@ export default function Sidebar({ isOpen, onToggle }) {
   const navItems = [
     { path: '/', label: 'Dashboard', icon: '📊' },
     { path: '/expenses', label: 'Expenses', icon: '💸' },
+    { path: '/employee-payments', label: 'Employee Payments', icon: '👷' },
     { path: '/income', label: 'Income', icon: '💰' },
     { path: '/withdrawals', label: 'Cash Withdrawal', icon: '🏧' },
     { path: '/deposits', label: 'Deposits', icon: '🏦' },

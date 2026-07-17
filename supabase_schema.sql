@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
     category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
     description TEXT,
+    employee_name TEXT,
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     payment_method TEXT DEFAULT 'cash' CHECK (payment_method IN ('cash', 'bank', 'other')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -304,6 +305,7 @@ INSERT INTO categories (name, icon, color) VALUES
     ('Rent', '🏠', '#06b6d4'),
     ('Family', '👨‍👩‍👧‍👦', '#14b8a6'),
     ('Business', '💼', '#6366f1'),
+    ('Employee Payment', '👷', '#f97316'),
     ('Savings', '🏦', '#22c55e'),
     ('Other', '📁', '#64748b')
 ON CONFLICT (name) DO NOTHING;

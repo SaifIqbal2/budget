@@ -82,7 +82,10 @@ export default function TransactionTable({ data, type, categories, onDelete, loa
               Date {sortField === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
             </th>
             {type === 'expense' ? (
-              <th>Category</th>
+              <>
+                <th>Category</th>
+                <th>Employee</th>
+              </>
             ) : (
               <th onClick={() => handleSort('source')} className="sortable">
                 Source {sortField === 'source' && (sortOrder === 'asc' ? '↑' : '↓')}
@@ -103,14 +106,17 @@ export default function TransactionTable({ data, type, categories, onDelete, loa
               <tr key={item.id}>
                 <td className="td-date">{formatDate(item.date)}</td>
                 {type === 'expense' ? (
-                  <td>
-                    <span
-                      className="category-badge"
-                      style={{ backgroundColor: cat.color + '22', color: cat.color }}
-                    >
-                      {cat.icon} {cat.name}
-                    </span>
-                  </td>
+                  <>
+                    <td>
+                      <span
+                        className="category-badge"
+                        style={{ backgroundColor: cat.color + '22', color: cat.color }}
+                      >
+                        {cat.icon} {cat.name}
+                      </span>
+                    </td>
+                    <td>{item.employee_name || '—'}</td>
+                  </>
                 ) : (
                   <td className="td-source">{item.source}</td>
                 )}
