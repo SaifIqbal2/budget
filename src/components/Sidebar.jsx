@@ -9,6 +9,7 @@ export default function Sidebar({ isOpen, onToggle }) {
     { path: '/', label: 'Dashboard', icon: '📊' },
     { path: '/expenses', label: 'Expenses', icon: '💸' },
     { path: '/employee-payments', label: 'Employee Payments', icon: '👷' },
+    { path: '/tasks', label: 'Tasks', icon: '🧾' },
     { path: '/income', label: 'Income', icon: '💰' },
     { path: '/withdrawals', label: 'Cash Withdrawal', icon: '🏧' },
     { path: '/deposits', label: 'Deposits', icon: '🏦' },
