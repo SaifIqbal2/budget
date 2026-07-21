@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function TaskTable({ data, onDelete, onUpdateStatus, loading }) {
+export default function TaskTable({ data, onDelete, onEdit, onUpdateStatus, loading }) {
   const [updatingId, setUpdatingId] = useState(null);
 
   const statusLabel = (s) => {
@@ -34,6 +34,7 @@ export default function TaskTable({ data, onDelete, onUpdateStatus, loading }) {
             <th>Title</th>
             <th>Client</th>
             <th>Status</th>
+            <th>Advance</th>
             <th>Amount</th>
             <th>Action</th>
           </tr>
@@ -55,8 +56,12 @@ export default function TaskTable({ data, onDelete, onUpdateStatus, loading }) {
                 </select>
                 <div className="status-label">{statusLabel(t.status)}</div>
               </td>
-              <td className="td-amount amount-expense">-Rs {Math.round(Number(t.amount) || 0)}</td>
+              <td className="td-amount amount-income">
+                {t.advance_amount ? `+Rs ${Math.round(Number(t.advance_amount) || 0)}` : '—'}
+              </td>
+              <td className="td-amount amount-income">+Rs {Math.round(Number(t.amount) || 0)}</td>
               <td>
+                <button className="btn-edit" onClick={() => onEdit(t)} title="Edit">✏️</button>
                 <button className="btn-delete" onClick={() => onDelete(t.id)} title="Delete">🗑️</button>
               </td>
             </tr>

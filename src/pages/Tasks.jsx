@@ -12,6 +12,7 @@ export default function Tasks({ onMenuToggle }) {
   const [categories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -39,10 +40,11 @@ export default function Tasks({ onMenuToggle }) {
 
   useEffect(() => { fetchTasks(); }, [selectedMonth, selectedYear]);
 
-  const createIncomeForTask = async (taskRows) => {
+  const createIncomeForTask = async (taskRows, incomeAmount, suffix = '') => {
+    if (incomeAmount <= 0) return null;
     const incomePayload = {
-      amount: Number(taskRows.amount) || 0,
-      source: `Payment for task: ${taskRows.title}`,
+      amount: Number(incomeAmount) || 0,
+      source: `Payment for task: ${taskRows.title}${suffix}`,
       description: taskRows.description || `Payment to ${taskRows.client_name || 'client'}`,
       date: new Date().toISOString().split('T')[0],
       payment_method: taskRows.payment_method || 'cash',
@@ -54,14 +56,15 @@ export default function Tasks({ onMenuToggle }) {
     return incomeData.id;
   };
 
-  const handleAddTask = async (formData) => {
+  const handleSaveTask = async (formData) => {
     setSubmitting(true);
     try {
       const payload = {
         title: formData.title,
         description: formData.description,
         client_name: formData.client_name || null,
-        amount: formData.amount || 0,
+        amount: Number(formData.amount) || 0,
+        advance_amount: Number(formData.advance_amount) || 0,
         status: formData.status,
         payment_method: formData.payment_method,
         date_received: formData.date_received,
@@ -69,34 +72,75 @@ export default function Tasks({ onMenuToggle }) {
         user_id: user.id,
       };
 
-      const { data: insertedData, error: insertError } = await supabase.from('tasks').insert(payload).select('*').single();
-      if (insertError) throw insertError;
+      if (!editingTask) {
+        const { data: insertedData, error: insertError } = await supabase.from('tasks').insert(payload).select('*').single();
+        if (insertError) throw insertError;
 
-      if (formData.status === 'paid' && insertedData) {
-        const incomeId = await createIncomeForTask(insertedData);
-        const { error: attachErr } = await supabase.from('tasks').update({ income_id: incomeId }).eq('id', insertedData.id);
-        if (attachErr) throw attachErr;
+        if (payload.advance_amount > 0) {
+          const advanceIncomeId = await createIncomeForTask(insertedData, payload.advance_amount, ' (advance)');
+          const { error: attachAdvErr } = await supabase.from('tasks').update({ advance_income_id: advanceIncomeId }).eq('id', insertedData.id);
+          if (attachAdvErr) throw attachAdvErr;
+        }
+
+        if (payload.status === 'paid') {
+          const remaining = payload.amount - payload.advance_amount;
+          if (remaining > 0) {
+            const finalIncomeId = await createIncomeForTask(insertedData, remaining, payload.advance_amount > 0 ? ' (remaining)' : '');
+            if (finalIncomeId) {
+              const { error: attachFinalErr } = await supabase.from('tasks').update({ income_id: finalIncomeId }).eq('id', insertedData.id);
+              if (attachFinalErr) throw attachFinalErr;
+            }
+          }
+        }
+      } else {
+        const taskId = editingTask.id;
+        const { data: currentTask, error: taskFetchErr } = await supabase.from('tasks').select('*').eq('id', taskId).single();
+        if (taskFetchErr) throw taskFetchErr;
+
+        const updatePayload = { ...payload };
+
+        if (payload.advance_amount > 0 && !currentTask.advance_income_id) {
+          const advanceIncomeId = await createIncomeForTask(currentTask, payload.advance_amount, ' (advance)');
+          updatePayload.advance_income_id = advanceIncomeId;
+        }
+
+        if (payload.status === 'paid' && !currentTask.income_id) {
+          const remaining = payload.amount - (payload.advance_amount || 0);
+          if (remaining > 0) {
+            const finalIncomeId = await createIncomeForTask(currentTask, remaining, payload.advance_amount > 0 ? ' (remaining)' : '');
+            updatePayload.income_id = finalIncomeId;
+          }
+        }
+
+        const { error: updateErr } = await supabase.from('tasks').update(updatePayload).eq('id', taskId);
+        if (updateErr) throw updateErr;
       }
 
+      setEditingTask(null);
       await fetchTasks();
     } catch (err) {
-      alert('Error adding task: ' + err.message);
-    } finally { setSubmitting(false); }
+      alert('Error saving task: ' + err.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDelete = async (id) => {
     try {
-      const { data: taskRows, error: fetchErr } = await supabase.from('tasks').select('income_id').eq('id', id).single();
-      if (fetchErr) throw fetchErr;
-
       const { error } = await supabase.from('tasks').delete().eq('id', id);
       if (error) throw error;
-
-      // Task deleted; its associated income record should remain intact.
       setTasks(tasks.filter((t) => t.id !== id));
     } catch (err) {
       alert('Error deleting task: ' + err.message);
     }
+  };
+
+  const handleEditTask = (task) => {
+    setEditingTask(task);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTask(null);
   };
 
   const handleUpdateStatus = async (id, status) => {
@@ -107,8 +151,10 @@ export default function Tasks({ onMenuToggle }) {
 
       let updatePayload = { status };
       if (status === 'paid' && !taskRows.income_id) {
-        const incomeId = await createIncomeForTask(taskRows);
-        updatePayload.income_id = incomeId;
+        const advanceAmount = Number(taskRows.advance_amount) || 0;
+        const incomeAmount = Math.max((Number(taskRows.amount) || 0) - advanceAmount, 0);
+        const incomeId = await createIncomeForTask(taskRows, incomeAmount, advanceAmount > 0 ? ' (remaining)' : '');
+        if (incomeId) updatePayload.income_id = incomeId;
       }
 
       const { error } = await supabase.from('tasks').update(updatePayload).eq('id', id);
@@ -138,10 +184,15 @@ export default function Tasks({ onMenuToggle }) {
         </div>
       </div>
 
-      <TaskForm onSubmit={handleAddTask} loading={submitting} />
+      <TaskForm
+        onSubmit={handleSaveTask}
+        loading={submitting}
+        defaults={editingTask || {}}
+        onCancel={editingTask ? handleCancelEdit : undefined}
+      />
 
       {loading ? (<div className="loading-container"><div className="loading-spinner"></div></div>) : (
-        <TaskTable data={tasks} onDelete={handleDelete} onUpdateStatus={handleUpdateStatus} />
+        <TaskTable data={tasks} onDelete={handleDelete} onEdit={handleEditTask} onUpdateStatus={handleUpdateStatus} />
       )}
     </div>
   );

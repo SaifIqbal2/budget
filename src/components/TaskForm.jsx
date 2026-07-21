@@ -1,16 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function TaskForm({ onSubmit, loading, defaults = {} }) {
+export default function TaskForm({ onSubmit, loading, defaults = {}, onCancel }) {
   const [formData, setFormData] = useState({
     title: defaults.title || '',
     description: defaults.description || '',
     client_name: defaults.client_name || '',
     amount: defaults.amount || '',
+    advance_amount: defaults.advance_amount || '',
     date_received: defaults.date_received || new Date().toISOString().split('T')[0],
     due_date: defaults.due_date || '',
     status: defaults.status || 'received',
     payment_method: defaults.payment_method || 'cash',
   });
+
+  useEffect(() => {
+    setFormData({
+      title: defaults.title || '',
+      description: defaults.description || '',
+      client_name: defaults.client_name || '',
+      amount: defaults.amount || '',
+      advance_amount: defaults.advance_amount || '',
+      date_received: defaults.date_received || new Date().toISOString().split('T')[0],
+      due_date: defaults.due_date || '',
+      status: defaults.status || 'received',
+      payment_method: defaults.payment_method || 'cash',
+    });
+  }, [defaults]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -21,11 +36,11 @@ export default function TaskForm({ onSubmit, loading, defaults = {} }) {
     if (!formData.title) return alert('Title is required');
     onSubmit(formData);
     setFormData({
-      task_number: '',
       title: '',
       description: '',
       client_name: '',
       amount: '',
+      advance_amount: '',
       date_received: new Date().toISOString().split('T')[0],
       due_date: '',
       status: 'received',
@@ -35,7 +50,7 @@ export default function TaskForm({ onSubmit, loading, defaults = {} }) {
 
   return (
     <form className="transaction-form" onSubmit={handleSubmit}>
-      <h3 className="form-title">🧾 Add Task</h3>
+      <h3 className="form-title">{defaults.id ? '✏️ Edit Task' : '🧾 Add Task'}</h3>
       <div className="form-grid">
         <div className="form-group">
           <label>Title</label>
@@ -48,6 +63,10 @@ export default function TaskForm({ onSubmit, loading, defaults = {} }) {
         <div className="form-group">
           <label>Amount (PKR)</label>
           <input type="number" name="amount" value={formData.amount} onChange={handleChange} placeholder="0" min="0" />
+        </div>
+        <div className="form-group">
+          <label>Advance Paid (optional)</label>
+          <input type="number" name="advance_amount" value={formData.advance_amount} onChange={handleChange} placeholder="0" min="0" step="0.01" />
         </div>
 
         <div className="form-group">
@@ -85,7 +104,12 @@ export default function TaskForm({ onSubmit, loading, defaults = {} }) {
         </div>
       </div>
 
-      <button className="btn btn-primary" type="submit" disabled={loading}>{loading ? 'Saving...' : 'Add Task'}</button>
+      <div className="form-actions">
+        <button className="btn btn-primary" type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save Task'}</button>
+        {onCancel ? (
+          <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={loading}>Cancel</button>
+        ) : null}
+      </div>
     </form>
   );
 }
