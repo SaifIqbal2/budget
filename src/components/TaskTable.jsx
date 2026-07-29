@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function TaskTable({ data, onDelete, onEdit, onUpdateStatus, loading }) {
+export default function TaskTable({ data, onDelete, onEdit, onUpdateStatus, onPrintInvoice, loading }) {
   const [updatingId, setUpdatingId] = useState(null);
 
   const statusLabel = (s) => {
@@ -60,8 +60,9 @@ export default function TaskTable({ data, onDelete, onEdit, onUpdateStatus, load
                 {t.advance_amount ? `+Rs ${Math.round(Number(t.advance_amount) || 0)}` : '—'}
               </td>
               <td className="td-amount amount-income">+Rs {Math.round(Number(t.amount) || 0)}</td>
-              <td>
+              <td className="task-actions-cell">
                 <button className="btn-edit" onClick={() => onEdit(t)} title="Edit">✏️</button>
+                <button className="btn-print" onClick={() => onPrintInvoice?.(t)} title="Print Invoice">🖨️</button>
                 <button className="btn-delete" onClick={() => onDelete(t.id)} title="Delete">🗑️</button>
               </td>
             </tr>

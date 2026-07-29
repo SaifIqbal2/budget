@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
@@ -13,6 +13,10 @@ export default function Tasks({ onMenuToggle }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [printMode, setPrintMode] = useState(null);
+  const [printTask, setPrintTask] = useState(null);
+  const [printTitle, setPrintTitle] = useState(null);
+  const printedRef = useRef(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -165,6 +169,43 @@ export default function Tasks({ onMenuToggle }) {
     }
   };
 
+  const handlePrintTaskInvoice = (task) => {
+    printedRef.current = false;
+    setPrintTask(task);
+    setPrintTitle('NEXUSGRADES Invoice');
+    setPrintMode('invoice');
+  };
+
+  const handlePrintStatement = () => {
+    printedRef.current = false;
+    setPrintTitle('NEXUSGRADES Statement');
+    setPrintMode('statement');
+  };
+
+  useEffect(() => {
+    if (!printMode || printedRef.current) return;
+    printedRef.current = true;
+
+    const previousTitle = document.title;
+    if (printTitle) document.title = printTitle;
+
+    const clearPrintState = () => {
+      printedRef.current = false;
+      setPrintMode(null);
+      setPrintTask(null);
+      setPrintTitle(null);
+      document.title = previousTitle;
+    };
+
+    window.addEventListener('afterprint', clearPrintState);
+    const printTimeout = setTimeout(() => window.print(), 100);
+    return () => {
+      clearTimeout(printTimeout);
+      window.removeEventListener('afterprint', clearPrintState);
+      document.title = previousTitle;
+    };
+  }, [printMode, printTitle]);
+
   const totalTasks = tasks.length;
 
   const MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -175,6 +216,10 @@ export default function Tasks({ onMenuToggle }) {
       <Header title="Task Management" subtitle={`Client tasks — ${MONTHS[selectedMonth]} ${selectedYear}`} onMenuToggle={onMenuToggle} />
 
       <MonthSelector selectedMonth={selectedMonth} selectedYear={selectedYear} onChange={(m,y) => { setSelectedMonth(m); setSelectedYear(y); }} />
+
+      <div className="task-actions">
+        <button className="btn btn-primary" type="button" onClick={handlePrintStatement}>🖨️ Print Statement</button>
+      </div>
 
       <div className="page-summary">
         <div className="summary-card summary-card--expense">
@@ -192,8 +237,163 @@ export default function Tasks({ onMenuToggle }) {
       />
 
       {loading ? (<div className="loading-container"><div className="loading-spinner"></div></div>) : (
-        <TaskTable data={tasks} onDelete={handleDelete} onEdit={handleEditTask} onUpdateStatus={handleUpdateStatus} />
+        <TaskTable
+          data={tasks}
+          onDelete={handleDelete}
+          onEdit={handleEditTask}
+          onUpdateStatus={handleUpdateStatus}
+          onPrintInvoice={handlePrintTaskInvoice}
+        />
       )}
+
+      <div className={`print-wrapper ${printMode ? 'print-active' : ''}`}>
+        {printMode === 'invoice' && printTask && (
+          <article className="invoice-page">
+            <header className="invoice-header">
+              <div className="invoice-brand">
+                <div className="invoice-logo">
+                  <img src="/assets/logo.png" alt="NEXUSGRADES logo" />
+                </div>
+                <div>
+                  <p className="invoice-company">NEXUSGRADES</p>
+                  <p className="invoice-subtitle">Remote Freelance Company</p>
+                </div>
+              </div>
+              <div className="invoice-meta">
+                <p><strong>Email:</strong> nexusgrades@gmail.com</p>
+                <p><strong>Phone:</strong> +923393301238</p>
+                <p><strong>Address:</strong> Remote, Freelance Company</p>
+              </div>
+            </header>
+
+            <section className="invoice-intro">
+              <h1>Invoice</h1>
+              <p>Invoice for task work and payment details.</p>
+            </section>
+
+            <section className="invoice-details">
+              <div>
+                <p className="invoice-label">Task #</p>
+                <p>{printTask.task_number || printTask.id || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="invoice-label">Title</p>
+                <p>{printTask.title}</p>
+              </div>
+              <div>
+                <p className="invoice-label">Client</p>
+                <p>{printTask.client_name || 'Client not provided'}</p>
+              </div>
+              <div>
+                <p className="invoice-label">Received</p>
+                <p>{printTask.date_received ? new Date(printTask.date_received).toLocaleDateString() : '—'}</p>
+              </div>
+              <div>
+                <p className="invoice-label">Due Date</p>
+                <p>{printTask.due_date ? new Date(printTask.due_date).toLocaleDateString() : '—'}</p>
+              </div>
+              <div>
+                <p className="invoice-label">Status</p>
+                <p>{printTask.status || '—'}</p>
+              </div>
+            </section>
+
+            <table className="invoice-table">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Advance Paid</th>
+                  <th>Total Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{printTask.description || 'Task work and delivery'}</td>
+                  <td>Rs {Math.round(Number(printTask.advance_amount) || 0)}</td>
+                  <td>Rs {Math.round(Number(printTask.amount) || 0)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className="invoice-summary-block">
+              <p><strong>Total Amount:</strong> Rs {Math.round(Number(printTask.amount) || 0)}</p>
+              <p><strong>Advance Paid:</strong> Rs {Math.round(Number(printTask.advance_amount) || 0)}</p>
+              <p><strong>Statement:</strong> This invoice reflects the paid advance and the final amount.
+              </p>
+            </div>
+
+            <footer className="invoice-footer">
+              <p>For support, email nexusgrades@gmail.com or call +923393301238.</p>
+            </footer>
+          </article>
+        )}
+
+        {printMode === 'statement' && (
+          <article className="invoice-page">
+            <header className="invoice-header">
+              <div className="invoice-brand">
+                <div className="invoice-logo">
+                  <img src="/assets/logo.png" alt="NEXUSGRADES logo" />
+                </div>
+                <div>
+                  <p className="invoice-company">NEXUSGRADES</p>
+                  <p className="invoice-subtitle">Remote Freelance Company</p>
+                </div>
+              </div>
+              <div className="invoice-meta">
+                <p><strong>Email:</strong> nexusgrades@gmail.com</p>
+                <p><strong>Phone:</strong> +923393301238</p>
+                <p><strong>Address:</strong> Remote, Freelance Company</p>
+              </div>
+            </header>
+
+            <section className="invoice-intro">
+              <h1>Task Statement</h1>
+              <p>This statement includes all tasks for the selected month.</p>
+            </section>
+
+            <table className="invoice-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Task #</th>
+                  <th>Title</th>
+                  <th>Client</th>
+                  <th>Description</th>
+                  <th>Advance</th>
+                  <th>Total Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.length > 0 ? tasks.map((task) => (
+                  <tr key={task.id}>
+                    <td>{task.date_received ? new Date(task.date_received).toLocaleDateString() : '—'}</td>
+                    <td>{task.task_number || task.id || '—'}</td>
+                    <td>{task.title}</td>
+                    <td>{task.client_name || '—'}</td>
+                    <td>{task.description || '—'}</td>
+                    <td>Rs {Math.round(Number(task.advance_amount) || 0)}</td>
+                    <td>Rs {Math.round(Number(task.amount) || 0)}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="8">No tasks available for statement printing.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            <div className="invoice-summary-block">
+              <p><strong>Total tasks:</strong> {tasks.length}</p>
+              <p><strong>Total amount:</strong> Rs {tasks.reduce((sum, task) => sum + Math.round(Number(task.amount) || 0), 0)}</p>
+            </div>
+
+            <footer className="invoice-footer">
+              <p>Remote Freelance Company — nexusgrades</p>
+            </footer>
+          </article>
+        )}
+      </div>
     </div>
   );
 }
