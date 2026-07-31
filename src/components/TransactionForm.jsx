@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export default function TransactionForm({ type, categories, onSubmit, loading, showEmployeeName = false }) {
   const [formData, setFormData] = useState({
     amount: '',
     description: '',
     employee_name: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     category_id: '',
     entry_type: 'expense',
     source: '',
@@ -24,7 +25,7 @@ export default function TransactionForm({ type, categories, onSubmit, loading, s
       amount: '',
       description: '',
       employee_name: '',
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDateString(),
       category_id: '',
       entry_type: 'expense',
       source: '',

@@ -21,7 +21,7 @@ export default function Deposits({ onMenuToggle }) {
     type: 'bank', // 'bank', 'cash', 'cash_to_bank'
     amount: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
   });
 
   useEffect(() => {

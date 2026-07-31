@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export default function TaskForm({ onSubmit, loading, defaults = {}, onCancel }) {
   const [formData, setFormData] = useState({
@@ -7,7 +8,7 @@ export default function TaskForm({ onSubmit, loading, defaults = {}, onCancel })
     client_name: defaults.client_name || '',
     amount: defaults.amount || '',
     advance_amount: defaults.advance_amount || '',
-    date_received: defaults.date_received || new Date().toISOString().split('T')[0],
+    date_received: defaults.date_received || getLocalDateString(),
     due_date: defaults.due_date || '',
     status: defaults.status || 'received',
     payment_method: defaults.payment_method || 'cash',
@@ -20,7 +21,7 @@ export default function TaskForm({ onSubmit, loading, defaults = {}, onCancel })
       client_name: defaults.client_name || '',
       amount: defaults.amount || '',
       advance_amount: defaults.advance_amount || '',
-      date_received: defaults.date_received || new Date().toISOString().split('T')[0],
+      date_received: defaults.date_received || getLocalDateString(),
       due_date: defaults.due_date || '',
       status: defaults.status || 'received',
       payment_method: defaults.payment_method || 'cash',
@@ -41,7 +42,7 @@ export default function TaskForm({ onSubmit, loading, defaults = {}, onCancel })
       client_name: '',
       amount: '',
       advance_amount: '',
-      date_received: new Date().toISOString().split('T')[0],
+      date_received: getLocalDateString(),
       due_date: '',
       status: 'received',
       payment_method: 'cash',

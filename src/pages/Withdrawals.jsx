@@ -15,7 +15,7 @@ export default function Withdrawals({ onMenuToggle }) {
   const [formData, setFormData] = useState({
     amount: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
   });
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function Withdrawals({ onMenuToggle }) {
       setFormData({
         amount: '',
         description: '',
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
       });
       await fetchWithdrawals();
     } catch (err) {

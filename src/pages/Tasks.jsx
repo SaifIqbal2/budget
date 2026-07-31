@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { getLocalDateString } from '../lib/dateUtils';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import TaskForm from '../components/TaskForm';
@@ -44,13 +45,13 @@ export default function Tasks({ onMenuToggle }) {
 
   useEffect(() => { fetchTasks(); }, [selectedMonth, selectedYear]);
 
-  const createIncomeForTask = async (taskRows, incomeAmount, suffix = '') => {
+  const createIncomeForTask = async (taskRows, incomeAmount, suffix = '', paymentDate = null) => {
     if (incomeAmount <= 0) return null;
     const incomePayload = {
       amount: Number(incomeAmount) || 0,
       source: `Payment for task: ${taskRows.title}${suffix}`,
       description: taskRows.description || `Payment to ${taskRows.client_name || 'client'}`,
-      date: new Date().toISOString().split('T')[0],
+      date: paymentDate || getLocalDateString(),
       payment_method: taskRows.payment_method || 'cash',
       user_id: user.id,
     };
@@ -80,8 +81,9 @@ export default function Tasks({ onMenuToggle }) {
         const { data: insertedData, error: insertError } = await supabase.from('tasks').insert(payload).select('*').single();
         if (insertError) throw insertError;
 
+        const paymentDate = getLocalDateString();
         if (payload.advance_amount > 0) {
-          const advanceIncomeId = await createIncomeForTask(insertedData, payload.advance_amount, ' (advance)');
+          const advanceIncomeId = await createIncomeForTask(insertedData, payload.advance_amount, ' (advance)', paymentDate);
           const { error: attachAdvErr } = await supabase.from('tasks').update({ advance_income_id: advanceIncomeId }).eq('id', insertedData.id);
           if (attachAdvErr) throw attachAdvErr;
         }
@@ -89,7 +91,7 @@ export default function Tasks({ onMenuToggle }) {
         if (payload.status === 'paid') {
           const remaining = payload.amount - payload.advance_amount;
           if (remaining > 0) {
-            const finalIncomeId = await createIncomeForTask(insertedData, remaining, payload.advance_amount > 0 ? ' (remaining)' : '');
+            const finalIncomeId = await createIncomeForTask(insertedData, remaining, payload.advance_amount > 0 ? ' (remaining)' : '', paymentDate);
             if (finalIncomeId) {
               const { error: attachFinalErr } = await supabase.from('tasks').update({ income_id: finalIncomeId }).eq('id', insertedData.id);
               if (attachFinalErr) throw attachFinalErr;
@@ -103,15 +105,17 @@ export default function Tasks({ onMenuToggle }) {
 
         const updatePayload = { ...payload };
 
+        const paymentDate = payload.status === 'paid' && currentTask.status !== 'paid' ? getLocalDateString() : null;
+
         if (payload.advance_amount > 0 && !currentTask.advance_income_id) {
-          const advanceIncomeId = await createIncomeForTask(currentTask, payload.advance_amount, ' (advance)');
+          const advanceIncomeId = await createIncomeForTask(currentTask, payload.advance_amount, ' (advance)', paymentDate);
           updatePayload.advance_income_id = advanceIncomeId;
         }
 
         if (payload.status === 'paid' && !currentTask.income_id) {
           const remaining = payload.amount - (payload.advance_amount || 0);
           if (remaining > 0) {
-            const finalIncomeId = await createIncomeForTask(currentTask, remaining, payload.advance_amount > 0 ? ' (remaining)' : '');
+            const finalIncomeId = await createIncomeForTask(currentTask, remaining, payload.advance_amount > 0 ? ' (remaining)' : '', paymentDate);
             updatePayload.income_id = finalIncomeId;
           }
         }
@@ -157,15 +161,17 @@ export default function Tasks({ onMenuToggle }) {
       let advanceIncomeId = null;
       let incomeId = null;
 
+      const paymentDate = status === 'paid' ? getLocalDateString() : null;
+
       if (status === 'paid' && !taskRows.income_id) {
         const advanceAmount = Number(taskRows.advance_amount) || 0;
         const incomeAmount = Math.max((Number(taskRows.amount) || 0) - advanceAmount, 0);
-        incomeId = await createIncomeForTask(taskRows, incomeAmount, advanceAmount > 0 ? ' (remaining)' : '');
+        incomeId = await createIncomeForTask(taskRows, incomeAmount, advanceAmount > 0 ? ' (remaining)' : '', paymentDate);
         if (incomeId) updatePayload.income_id = incomeId;
       }
 
       if (status === 'paid' && !taskRows.advance_income_id && Number(taskRows.advance_amount) > 0) {
-        advanceIncomeId = await createIncomeForTask(taskRows, Number(taskRows.advance_amount), ' (advance)');
+        advanceIncomeId = await createIncomeForTask(taskRows, Number(taskRows.advance_amount), ' (advance)', paymentDate);
         if (advanceIncomeId) updatePayload.advance_income_id = advanceIncomeId;
       }
 
