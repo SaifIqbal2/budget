@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import MonthSelector from '../components/MonthSelector';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export default function Deposits({ onMenuToggle }) {
   const { user } = useAuth();
