@@ -30,25 +30,30 @@ export default function Expenses({ onMenuToggle }) {
       .order('name');
 
     let categoriesList = data || [];
+    const requiredCategories = [
+      { name: 'Employee Payment', icon: '👷', color: '#f97316' },
+      { name: 'Savings', icon: '🏦', color: '#0ea5e9' },
+      { name: 'Investment', icon: '📈', color: '#8b5cf6' },
+    ];
 
-    if (!categoriesList.some((cat) => cat.name === 'Employee Payment')) {
-      const { error: upsertError } = await supabase.from('categories').upsert(
-        [{ name: 'Employee Payment', icon: '👷', color: '#f97316' }],
-        { onConflict: 'name' }
-      );
-      if (upsertError) {
-        console.error('Employee Payment category error:', upsertError);
-      } else {
-        const { data: refreshedData, error: refreshError } = await supabase
-          .from('categories')
-          .select('*')
-          .order('name');
-        if (refreshError) {
-          console.error('Categories refresh error:', refreshError);
-        } else {
-          categoriesList = refreshedData || [];
+    for (const category of requiredCategories) {
+      if (!categoriesList.some((cat) => cat.name === category.name)) {
+        const { error: upsertError } = await supabase.from('categories').upsert([category], { onConflict: 'name' });
+        if (upsertError) {
+          console.error(`${category.name} category error:`, upsertError);
         }
       }
+    }
+
+    const { data: refreshedData, error: refreshError } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name');
+
+    if (refreshError) {
+      console.error('Categories refresh error:', refreshError);
+    } else {
+      categoriesList = refreshedData || [];
     }
 
     if (error) console.error('Categories error:', error);
@@ -104,9 +109,16 @@ export default function Expenses({ onMenuToggle }) {
   const handleAddExpense = async (formData) => {
     setSubmitting(true);
     try {
+      const categoriesList = await fetchCategories();
+      const entryType = formData.entry_type || 'expense';
+      const specialCategoryName = entryType === 'savings' ? 'Savings' : entryType === 'investment' ? 'Investment' : null;
+      const categoryId = specialCategoryName
+        ? categoriesList.find((cat) => cat.name === specialCategoryName)?.id || null
+        : formData.category_id || null;
+
       const { error } = await supabase.from('expenses').insert({
         amount: Number(formData.amount),
-        category_id: formData.category_id || null,
+        category_id: categoryId,
         description: formData.description,
         employee_name: formData.employee_name || null,
         date: formData.date,
@@ -133,7 +145,12 @@ export default function Expenses({ onMenuToggle }) {
     }
   };
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const regularExpenses = expenses.filter((entry) => !['Savings', 'Investment'].includes(entry.categories?.name));
+  const savingsEntries = expenses.filter((entry) => entry.categories?.name === 'Savings');
+  const investmentEntries = expenses.filter((entry) => entry.categories?.name === 'Investment');
+  const totalExpenses = regularExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalSavings = savingsEntries.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalInvestments = investmentEntries.reduce((sum, e) => sum + Number(e.amount), 0);
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-PK', {
       style: 'currency',
@@ -162,15 +179,25 @@ export default function Expenses({ onMenuToggle }) {
 
       <div className="page-summary">
         <div className="summary-card summary-card--expense">
-          <span className="summary-label">Total Expenses</span>
+          <span className="summary-label">Regular Expenses</span>
           <span className="summary-value">{formatCurrency(totalExpenses)}</span>
-          <span className="summary-count">{expenses.length} transactions</span>
+          <span className="summary-count">{regularExpenses.length} entries</span>
+        </div>
+        <div className="summary-card summary-card--income">
+          <span className="summary-label">Savings</span>
+          <span className="summary-value">{formatCurrency(totalSavings)}</span>
+          <span className="summary-count">{savingsEntries.length} entries</span>
+        </div>
+        <div className="summary-card summary-card--expense">
+          <span className="summary-label">Investments</span>
+          <span className="summary-value">{formatCurrency(totalInvestments)}</span>
+          <span className="summary-count">{investmentEntries.length} entries</span>
         </div>
       </div>
 
       <TransactionForm
         type="expense"
-        categories={categories.filter((cat) => cat.name !== 'Employee Payment')}
+        categories={categories.filter((cat) => !['Employee Payment', 'Savings', 'Investment'].includes(cat.name))}
         onSubmit={handleAddExpense}
         loading={submitting}
       />

@@ -7,6 +7,7 @@ export default function TransactionForm({ type, categories, onSubmit, loading, s
     employee_name: '',
     date: new Date().toISOString().split('T')[0],
     category_id: '',
+    entry_type: 'expense',
     source: '',
     payment_method: 'cash',
   });
@@ -18,22 +19,31 @@ export default function TransactionForm({ type, categories, onSubmit, loading, s
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.amount || Number(formData.amount) <= 0) return;
-    onSubmit(formData);
+    onSubmit({ ...formData, entry_type: formData.entry_type || 'expense' });
     setFormData({
       amount: '',
       description: '',
       employee_name: '',
       date: new Date().toISOString().split('T')[0],
       category_id: '',
+      entry_type: 'expense',
       source: '',
       payment_method: 'cash',
     });
   };
 
+  const entryTypeLabel = formData.entry_type === 'savings'
+    ? 'Savings'
+    : formData.entry_type === 'investment'
+      ? 'Investment'
+      : 'Expense';
+
   return (
     <form className="transaction-form" onSubmit={handleSubmit}>
       <h3 className="form-title">
-        {type === 'expense' ? '💸 Add Expense' : '💰 Add Income'}
+        {type === 'expense'
+          ? `💸 Add ${entryTypeLabel}`
+          : '💰 Add Income'}
       </h3>
 
       <div className="form-grid">
@@ -63,7 +73,23 @@ export default function TransactionForm({ type, categories, onSubmit, loading, s
           />
         </div>
 
-        {type === 'expense' && categories && (
+        {type === 'expense' && (
+          <div className="form-group">
+            <label htmlFor="entry_type">Entry Type</label>
+            <select
+              id="entry_type"
+              name="entry_type"
+              value={formData.entry_type}
+              onChange={handleChange}
+            >
+              <option value="expense">💸 Expense</option>
+              <option value="savings">🏦 Savings</option>
+              <option value="investment">📈 Investment</option>
+            </select>
+          </div>
+        )}
+
+        {type === 'expense' && formData.entry_type === 'expense' && categories && (
           <div className="form-group">
             <label htmlFor="category_id">Category</label>
             <select
@@ -143,7 +169,11 @@ export default function TransactionForm({ type, categories, onSubmit, loading, s
         {loading ? (
           <span className="btn-loading">Adding...</span>
         ) : (
-          <span>{type === 'expense' ? '💸 Add Expense' : '💰 Add Income'}</span>
+          <span>
+            {type === 'expense'
+              ? `💸 Add ${entryTypeLabel}`
+              : '💰 Add Income'}
+          </span>
         )}
       </button>
     </form>

@@ -7,6 +7,7 @@ import Charts from '../components/Charts';
 export default function MonthlySummary({ onMenuToggle }) {
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
+  const [openingBalances, setOpeningBalances] = useState({ cash: 0, bank: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -20,8 +21,14 @@ export default function MonthlySummary({ onMenuToggle }) {
     const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
     const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
     const endDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
+    const prevYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
+    const prevMonthLastDay = new Date(prevYear, prevMonth, 0).getDate();
+    const prevStartDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+    const prevEndDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(prevMonthLastDay).padStart(2, '0')}`;
+    const isJuly2026 = selectedMonth === 7 && selectedYear === 2026;
 
-    const [expRes, incRes] = await Promise.all([
+    const [expRes, incRes, prevExpRes, prevIncRes] = await Promise.all([
       supabase
         .from('expenses')
         .select('*, categories!category_id(name, icon, color)')
@@ -34,10 +41,24 @@ export default function MonthlySummary({ onMenuToggle }) {
         .gte('date', startDate)
         .lte('date', endDate)
         .order('date', { ascending: false }),
+      supabase
+        .from('expenses')
+        .select('*, categories!category_id(name, icon, color)')
+        .gte('date', prevStartDate)
+        .lte('date', prevEndDate)
+        .order('date', { ascending: false }),
+      supabase
+        .from('incomes')
+        .select('*')
+        .gte('date', prevStartDate)
+        .lte('date', prevEndDate)
+        .order('date', { ascending: false }),
     ]);
 
     if (expRes.error) console.error('Monthly expenses error:', expRes.error);
     if (incRes.error) console.error('Monthly incomes error:', incRes.error);
+    if (prevExpRes.error) console.error('Previous month expenses error:', prevExpRes.error);
+    if (prevIncRes.error) console.error('Previous month incomes error:', prevIncRes.error);
 
     if (expRes.error) {
       const { data } = await supabase.from('expenses').select('*')
@@ -47,6 +68,35 @@ export default function MonthlySummary({ onMenuToggle }) {
       setExpenses(expRes.data || []);
     }
     setIncomes(incRes.data || []);
+
+    const previousExpenses = isJuly2026 ? [] : (prevExpRes.error ? [] : prevExpRes.data || []);
+    const previousIncomes = isJuly2026 ? [] : (prevIncRes.error ? [] : prevIncRes.data || []);
+
+    const previousExpensesRegular = previousExpenses.filter((entry) => !['Savings', 'Investment'].includes(entry.categories?.name));
+    const previousSavingsEntries = previousExpenses.filter((entry) => entry.categories?.name === 'Savings');
+    const previousCashExpenses = previousExpensesRegular
+      .filter((e) => e.payment_method === 'cash')
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+    const previousCashSavings = previousSavingsEntries
+      .filter((e) => e.payment_method === 'cash')
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+    const previousCashIncome = previousIncomes
+      .filter((i) => i.payment_method === 'cash')
+      .reduce((sum, i) => sum + Number(i.amount), 0);
+    const previousBankExpenses = previousExpensesRegular
+      .filter((e) => e.payment_method === 'bank')
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+    const previousBankSavings = previousSavingsEntries
+      .filter((e) => e.payment_method === 'bank')
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+    const previousBankIncome = previousIncomes
+      .filter((i) => i.payment_method === 'bank')
+      .reduce((sum, i) => sum + Number(i.amount), 0);
+
+    const openingCash = previousCashIncome - previousCashExpenses - previousCashSavings;
+    const openingBank = previousBankIncome - previousBankExpenses - previousBankSavings;
+    setOpeningBalances({ cash: openingCash, bank: openingBank });
+
     setLoading(false);
   };
 
@@ -60,20 +110,29 @@ export default function MonthlySummary({ onMenuToggle }) {
   };
 
   const stats = useMemo(() => {
-    const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    const regularExpenses = expenses.filter((entry) => !['Savings', 'Investment'].includes(entry.categories?.name));
+    const savingsEntries = expenses.filter((entry) => entry.categories?.name === 'Savings');
+    const investmentEntries = expenses.filter((entry) => entry.categories?.name === 'Investment');
+    const totalExpenses = regularExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    const totalSavings = savingsEntries.reduce((sum, e) => sum + Number(e.amount), 0);
+    const totalInvestments = investmentEntries.reduce((sum, e) => sum + Number(e.amount), 0);
     const totalIncome = incomes.reduce((sum, i) => sum + Number(i.amount), 0);
     const balance = totalIncome - totalExpenses;
     const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0;
 
-    const cashExpenses = expenses.filter(e => e.payment_method === 'cash').reduce((s, e) => s + Number(e.amount), 0);
+    const cashExpenses = regularExpenses.filter(e => e.payment_method === 'cash').reduce((s, e) => s + Number(e.amount), 0);
+    const cashSavings = savingsEntries.filter(e => e.payment_method === 'cash').reduce((s, e) => s + Number(e.amount), 0);
     const cashIncome = incomes.filter(i => i.payment_method === 'cash').reduce((s, i) => s + Number(i.amount), 0);
-    const bankExpenses = expenses.filter(e => e.payment_method === 'bank').reduce((s, e) => s + Number(e.amount), 0);
+    const bankExpenses = regularExpenses.filter(e => e.payment_method === 'bank').reduce((s, e) => s + Number(e.amount), 0);
+    const bankSavings = savingsEntries.filter(e => e.payment_method === 'bank').reduce((s, e) => s + Number(e.amount), 0);
     const bankIncome = incomes.filter(i => i.payment_method === 'bank').reduce((s, i) => s + Number(i.amount), 0);
 
     return {
       totalExpenses, totalIncome, balance, savingsRate,
-      cashBalance: cashIncome - cashExpenses,
-      bankBalance: bankIncome - bankExpenses,
+      cashBalance: openingBalances.cash + cashIncome - cashExpenses - cashSavings,
+      bankBalance: openingBalances.bank + bankIncome - bankExpenses - bankSavings,
+      totalSavings,
+      totalInvestments,
     };
   }, [expenses, incomes]);
 
@@ -153,6 +212,26 @@ export default function MonthlySummary({ onMenuToggle }) {
               </div>
               <div className="overview-card__detail">
                 Savings rate: {stats.savingsRate}%
+              </div>
+            </div>
+
+            <div className="overview-card">
+              <div className="overview-card__header">
+                <span>🏦</span>
+                <span>Savings</span>
+              </div>
+              <div className="overview-card__value amount-income">
+                {formatCurrency(stats.totalSavings)}
+              </div>
+            </div>
+
+            <div className="overview-card">
+              <div className="overview-card__header">
+                <span>📈</span>
+                <span>Investments</span>
+              </div>
+              <div className="overview-card__value amount-expense">
+                {formatCurrency(stats.totalInvestments)}
               </div>
             </div>
 

@@ -154,15 +154,38 @@ export default function Tasks({ onMenuToggle }) {
       if (fetchErr) throw fetchErr;
 
       let updatePayload = { status };
+      let advanceIncomeId = null;
+      let incomeId = null;
+
       if (status === 'paid' && !taskRows.income_id) {
         const advanceAmount = Number(taskRows.advance_amount) || 0;
         const incomeAmount = Math.max((Number(taskRows.amount) || 0) - advanceAmount, 0);
-        const incomeId = await createIncomeForTask(taskRows, incomeAmount, advanceAmount > 0 ? ' (remaining)' : '');
+        incomeId = await createIncomeForTask(taskRows, incomeAmount, advanceAmount > 0 ? ' (remaining)' : '');
         if (incomeId) updatePayload.income_id = incomeId;
+      }
+
+      if (status === 'paid' && !taskRows.advance_income_id && Number(taskRows.advance_amount) > 0) {
+        advanceIncomeId = await createIncomeForTask(taskRows, Number(taskRows.advance_amount), ' (advance)');
+        if (advanceIncomeId) updatePayload.advance_income_id = advanceIncomeId;
       }
 
       const { error } = await supabase.from('tasks').update(updatePayload).eq('id', id);
       if (error) throw error;
+
+      const updatedTask = { ...taskRows, status };
+      if (advanceIncomeId) {
+        updatedTask.advance_income_id = advanceIncomeId;
+      }
+      if (incomeId) {
+        updatedTask.income_id = incomeId;
+      }
+
+      if (status === 'paid') {
+        setPrintTask(updatedTask);
+        setPrintTitle('NEXUSGRADES Invoice');
+        setPrintMode('invoice');
+      }
+
       await fetchTasks();
     } catch (err) {
       alert('Error updating status: ' + err.message);
@@ -208,6 +231,60 @@ export default function Tasks({ onMenuToggle }) {
 
   const totalTasks = tasks.length;
 
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-PK', {
+      style: 'currency',
+      currency: 'PKR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount || 0);
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const formatInvoiceNumber = (task) => {
+    if (!task) return 'NG-2026-0000';
+    
+    // Year
+    const year = 2026;
+    
+    // Create sequence number from task ID
+    const idStr = task.id || '0000';
+    const sequenceNum = parseInt(idStr.slice(0, 8).replace(/[^0-9]/g, '') || '0', 10) % 10000;
+    const sequence = String(sequenceNum).padStart(4, '0');
+    
+    return `NG-${year}-${sequence}`;
+  };
+
+  const invoiceNumber = printTask ? formatInvoiceNumber(printTask) : 'NG-0000-0000';
+  const invoiceDate = printTask?.date_received ? formatDate(printTask.date_received) : '—';
+  const paymentDate = printTask?.date_received ? formatDate(printTask.date_received) : '—';
+  const invoiceDueDate = printTask?.due_date ? formatDate(printTask.due_date) : '—';
+  const invoiceAmount = Number(printTask?.amount) || 0;
+  const invoiceAdvance = Number(printTask?.advance_amount) || 0;
+  const invoiceDiscount = 0;
+  const invoiceTax = 0;
+  const invoiceSubtotal = invoiceAmount;
+  const invoiceTotalAmount = invoiceSubtotal;
+  const invoicePaidAmount = invoiceSubtotal;
+  const invoiceItems = [
+    {
+      title: printTask?.title || printTask?.description || 'Task work and delivery',
+      quantity: 1,
+      unitPrice: invoiceSubtotal,
+      amount: invoiceSubtotal,
+    },
+  ];
+  const paymentMethod = printTask?.payment_method ? printTask.payment_method.charAt(0).toUpperCase() + printTask.payment_method.slice(1) : 'Bank Transfer';
+  const transactionId = printTask?.income_id || printTask?.advance_income_id || printTask?.task_number || printTask?.id || 'N/A';
+
   const MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -249,82 +326,122 @@ export default function Tasks({ onMenuToggle }) {
       <div className={`print-wrapper ${printMode ? 'print-active' : ''}`}>
         {printMode === 'invoice' && printTask && (
           <article className="invoice-page">
-            <header className="invoice-header">
-              <div className="invoice-brand">
+            <header className="invoice-header invoice-header--alt">
+              <div className="invoice-brand-block">
                 <div className="invoice-logo">
-                  <img src="/assets/logo.png" alt="NEXUSGRADES logo" />
+                  <img src="/assets/logo.png" alt="Nexus Grades logo" />
                 </div>
-                <div>
-                  <p className="invoice-company">NEXUSGRADES</p>
-                  <p className="invoice-subtitle">Remote Freelance Company</p>
+                <div className="invoice-company-block">
+                  <p className="invoice-company">NEXUS GRADES</p>
+                  <p className="invoice-subtitle">REMOTE FREELANCE COMPANY</p>
+                  <p className="invoice-contact">nexusgrades@gmail.com | +92 339 3301238 | www.nexusgrades.com</p>
                 </div>
               </div>
-              <div className="invoice-meta">
-                <p><strong>Email:</strong> nexusgrades@gmail.com</p>
-                <p><strong>Phone:</strong> +923393301238</p>
-                <p><strong>Address:</strong> Remote, Freelance Company</p>
+              <div className="invoice-meta-block">
+                <div>
+                  <p className="invoice-meta-label">Invoice No</p>
+                  <p className="invoice-meta-value">{invoiceNumber}</p>
+                </div>
+                <div>
+                  <p className="invoice-meta-label">Invoice Date</p>
+                  <p className="invoice-meta-value">{invoiceDate}</p>
+                </div>
+                <div>
+                  <p className="invoice-meta-label">Payment Date</p>
+                  <p className="invoice-meta-value">{paymentDate}</p>
+                </div>
+                <div>
+                  <p className="invoice-meta-label">Currency</p>
+                  <p className="invoice-meta-value">PKR</p>
+                </div>
               </div>
             </header>
 
-            <section className="invoice-intro">
-              <h1>Invoice</h1>
-              <p>Invoice for task work and payment details.</p>
+            <div className="invoice-rule invoice-rule--primary" />
+            <div className="invoice-rule invoice-rule--secondary" />
+
+            <section className="invoice-title-row">
+              <div>
+                <h1 className="invoice-title">INVOICE</h1>
+                <span className="invoice-status">PAID</span>
+              </div>
             </section>
 
-            <section className="invoice-details">
-              <div>
-                <p className="invoice-label">Task #</p>
-                <p>{printTask.task_number || printTask.id || 'N/A'}</p>
+            <section className="invoice-parties">
+              <div className="invoice-party-card">
+                <p className="invoice-party-heading">BILLED BY</p>
+                <p className="invoice-party-name">Nexus Grades</p>
+                <p className="invoice-party-address">Remote Freelance Company</p>
+                <p className="invoice-party-address">nexusgrades@gmail.com</p>
+                <p className="invoice-party-address">+92 339 3301238</p>
               </div>
-              <div>
-                <p className="invoice-label">Title</p>
-                <p>{printTask.title}</p>
-              </div>
-              <div>
-                <p className="invoice-label">Client</p>
-                <p>{printTask.client_name || 'Client not provided'}</p>
-              </div>
-              <div>
-                <p className="invoice-label">Received</p>
-                <p>{printTask.date_received ? new Date(printTask.date_received).toLocaleDateString() : '—'}</p>
-              </div>
-              <div>
-                <p className="invoice-label">Due Date</p>
-                <p>{printTask.due_date ? new Date(printTask.due_date).toLocaleDateString() : '—'}</p>
-              </div>
-              <div>
-                <p className="invoice-label">Status</p>
-                <p>{printTask.status || '—'}</p>
+              <div className="invoice-party-card">
+                <p className="invoice-party-heading">BILLED TO</p>
+                <p className="invoice-party-name">{printTask.client_name || 'Client Name'}</p>
+                <p className="invoice-party-address">{printTask.client_address || 'Client address not provided'}</p>
               </div>
             </section>
 
             <table className="invoice-table">
               <thead>
                 <tr>
-                  <th>Description</th>
-                  <th>Advance Paid</th>
-                  <th>Total Amount</th>
+                  <th>DESCRIPTION</th>
+                  <th>QTY</th>
+                  <th>UNIT PRICE</th>
+                  <th>AMOUNT</th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>{printTask.description || 'Task work and delivery'}</td>
-                  <td>Rs {Math.round(Number(printTask.advance_amount) || 0)}</td>
-                  <td>Rs {Math.round(Number(printTask.amount) || 0)}</td>
-                </tr>
+                {invoiceItems.map((item, index) => (
+                  <tr key={`${item.title}-${index}`}>
+                    <td>{item.title}</td>
+                    <td>{item.quantity}</td>
+                    <td>{formatCurrency(item.unitPrice)}</td>
+                    <td>{formatCurrency(item.amount)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
 
             <div className="invoice-summary-block">
-              <p><strong>Total Amount:</strong> Rs {Math.round(Number(printTask.amount) || 0)}</p>
-              <p><strong>Advance Paid:</strong> Rs {Math.round(Number(printTask.advance_amount) || 0)}</p>
-              <p><strong>Statement:</strong> This invoice reflects the paid advance and the final amount.
-              </p>
+              <div className="invoice-summary-row"><span>Subtotal</span><strong>{formatCurrency(invoiceSubtotal)}</strong></div>
+              <div className="invoice-summary-row"><span>Discount</span><strong>{formatCurrency(invoiceDiscount)}</strong></div>
+              <div className="invoice-summary-row"><span>Tax</span><strong>{formatCurrency(invoiceTax)}</strong></div>
+              <div className="invoice-summary-row invoice-summary-row--paid"><span>AMOUNT PAID</span><strong>{formatCurrency(invoicePaidAmount)}</strong></div>
             </div>
 
-            <footer className="invoice-footer">
-              <p>For support, email nexusgrades@gmail.com or call +923393301238.</p>
-            </footer>
+            <div className="invoice-payment-note-grid">
+              <div className="invoice-payment-card">
+                <p className="invoice-section-label">PAYMENT RECEIVED</p>
+                <p><strong>Method:</strong> {paymentMethod}</p>
+                <p><strong>Transaction ID:</strong> {transactionId}</p>
+                <p><strong>Paid On:</strong> {paymentDate}</p>
+              </div>
+              <div className="invoice-payment-card">
+                <p className="invoice-section-label">NOTE</p>
+                <p>Payment is confirmed and fully received. Thank you for your business.</p>
+              </div>
+            </div>
+
+            <section className="invoice-terms">
+              <h2>Terms & Conditions</h2>
+              <div className="invoice-terms-grid">
+                <ol className="terms-list">
+                  <li>Ownership — IP/deliverables transfer to Client only upon full payment (already received).</li>
+                  <li>Confidentiality — both parties keep project details/data confidential.</li>
+                  <li>Refund Policy — non-refundable once services are delivered, unless agreed otherwise in writing.</li>
+                  <li>Currency & Charges — amounts in stated currency; bank/gateway charges borne by payer.</li>
+                  <li>Warranty — services provided "as-is"; extra revisions need a separate agreement.</li>
+                  <li>Governing Law — governed by the laws of Pakistan unless otherwise agreed.</li>
+                  <li>Dispute Resolution — resolved first through good-faith negotiation.</li>
+                  <li>Records — invoice serves as an official payment record for accounting/tax purposes.</li>
+                </ol>
+              </div>
+            </section>
+
+            <p className="invoice-footer-note">This is a computer-generated invoice confirming payment received and does not require a signature.</p>
+            <div className="invoice-footer-rule" />
+            <p className="invoice-footer-text">Remote Freelance Company | www.nexusgrades.com | +92 339 3301238</p>
           </article>
         )}
 
@@ -346,6 +463,17 @@ export default function Tasks({ onMenuToggle }) {
                 <p><strong>Address:</strong> Remote, Freelance Company</p>
               </div>
             </header>
+
+            <section className="client-info statement-info">
+              <div>
+                <p><strong>Statement For:</strong> {MONTHS[selectedMonth]} {selectedYear}</p>
+                <p><strong>Prepared By:</strong> {user.email}</p>
+              </div>
+              <div>
+                <p><strong>Total Tasks:</strong> {tasks.length}</p>
+                <p><strong>Period:</strong> {MONTHS[selectedMonth]} {selectedYear}</p>
+              </div>
+            </section>
 
             <section className="invoice-intro">
               <h1>Task Statement</h1>
@@ -377,7 +505,7 @@ export default function Tasks({ onMenuToggle }) {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan="8">No tasks available for statement printing.</td>
+                    <td colSpan="7">No tasks available for statement printing.</td>
                   </tr>
                 )}
               </tbody>
